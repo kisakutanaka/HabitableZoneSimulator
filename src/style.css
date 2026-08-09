@@ -71,13 +71,25 @@ body {
   margin-top: 2px;
 }
 
-#temperature-emoji {
+#face-panel {
   position: fixed;
   top: calc(10px + env(safe-area-inset-top));
   right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+#temperature-emoji {
   font-size: 40px;
   line-height: 1;
-  pointer-events: none;
+}
+
+#animal-emoji {
+  font-size: 26px;
+  line-height: 1;
 }
 
 #legend {

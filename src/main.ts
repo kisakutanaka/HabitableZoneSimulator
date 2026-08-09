@@ -209,38 +209,38 @@ function zoneStatusText(distanceAU: number, hz: HabitableZone): string {
   return "ハビタブルゾーン内";
 }
 
-interface TemperatureTier {
-  emoji: string;
+interface TemperatureBand {
+  /** この気温帯の下限（℃、以上）。配列は降順に並べ、最初に条件を満たした帯を採用する。 */
+  minCelsius: number;
   comment: string;
+  animalEmoji: string;
+  animalComment: string;
 }
 
-// 地表の気温（摂氏）を説明する短いコメント（7段階）。
+// 地表の気温（摂氏）ごとの説明コメント・代表的な生き物（7段階）。
 // 0℃・100℃という水の相転移温度（1気圧）を軸に、水が液体でいられるかどうかを軸に据えている。
-function temperatureComment(celsius: number): string {
-  if (celsius >= 100) {
-    return "灼熱で、水はすべて蒸発してしまう";
-  }
-  if (celsius >= 50) {
-    return "人が生活するには暑すぎる";
-  }
-  if (celsius >= 30) {
-    return "暑いが、水はまだ液体で存在できる";
-  }
-  if (celsius >= 15) {
-    return "ちょうどよい気温で、生命が活動しやすい";
-  }
-  if (celsius >= 0) {
-    return "少し寒いが、水は液体のまま存在できる";
-  }
-  if (celsius >= -50) {
-    return "とても寒く、海のほとんどが凍っている";
-  }
-  return "極寒で、海はすべて凍りついている";
+// 代表的な生き物は「その気温帯で生活しやすい／かろうじて生きられる」ものの一例であり、
+// 正確な生息可能温度域の考証ではなく直感的なイメージを伝えるための例示。
+const TEMPERATURE_BANDS: TemperatureBand[] = [
+  { minCelsius: 100, comment: "灼熱で、水はすべて蒸発してしまう", animalEmoji: "🦠", animalComment: "生きられるのは微生物ぐらい" },
+  { minCelsius: 50, comment: "人が生活するには暑すぎる", animalEmoji: "🦂", animalComment: "サソリは生活しやすい" },
+  { minCelsius: 30, comment: "暑いが、水はまだ液体で存在できる", animalEmoji: "🐫", animalComment: "ラクダは生活しやすい" },
+  { minCelsius: 15, comment: "ちょうどよい気温で、生命が活動しやすい", animalEmoji: "🐘", animalComment: "ゾウは生活しやすい" },
+  { minCelsius: 0, comment: "少し寒いが、水は液体のまま存在できる", animalEmoji: "🐻", animalComment: "クマは生活しやすい" },
+  { minCelsius: -50, comment: "とても寒く、海のほとんどが凍っている", animalEmoji: "🦣", animalComment: "マンモスは生活しやすい" },
+  { minCelsius: -Infinity, comment: "極寒で、海はすべて凍りついている", animalEmoji: "🐧", animalComment: "ペンギンぐらいしか生きられない" },
+];
+
+function temperatureBand(celsius: number): TemperatureBand {
+  return (
+    TEMPERATURE_BANDS.find((band) => celsius >= band.minCelsius) ??
+    TEMPERATURE_BANDS[TEMPERATURE_BANDS.length - 1]
+  );
 }
 
 // 地表の気温（摂氏）を表す顔文字（5段階、コメントより粗い粒度）。
 // 極端な高温・低温だけを💀とし、それ以外は🥵（暑い）/🙂（快適）/🥶（寒い）の3種類で表す。
-function temperatureEmoji(celsius: number): string {
+function temperatureFaceEmoji(celsius: number): string {
   if (celsius >= 100) {
     return "💀";
   }
@@ -254,10 +254,6 @@ function temperatureEmoji(celsius: number): string {
     return "🥶";
   }
   return "💀";
-}
-
-function temperatureTier(celsius: number): TemperatureTier {
-  return { emoji: temperatureEmoji(celsius), comment: temperatureComment(celsius) };
 }
 
 const temperatureValueEl = document.getElementById("temperature-value");
@@ -278,13 +274,20 @@ if (!temperatureEmojiEl) {
 }
 const temperatureEmojiDisplay: HTMLElement = temperatureEmojiEl;
 
+const animalEmojiEl = document.getElementById("animal-emoji");
+if (!animalEmojiEl) {
+  throw new Error("#animal-emoji element not found");
+}
+const animalEmojiDisplay: HTMLElement = animalEmojiEl;
+
 function updateEarthReadout(distanceAU: number, surfaceTempKelvin: number, hz: HabitableZone): void {
   // 表示する丸め後の値とコメント判定の基準を一致させる（丸め後だけ基準をまたいで見えるズレを防ぐ）
   const surfaceTempCelsius = Math.round(surfaceTempKelvin - 273.15);
-  const tier = temperatureTier(surfaceTempCelsius);
+  const band = temperatureBand(surfaceTempCelsius);
   temperatureValue.textContent = `${surfaceTempCelsius}℃`;
-  temperatureCommentText.textContent = tier.comment;
-  temperatureEmojiDisplay.textContent = tier.emoji;
+  temperatureCommentText.textContent = `${band.comment}。${band.animalComment}。`;
+  temperatureEmojiDisplay.textContent = temperatureFaceEmoji(surfaceTempCelsius);
+  animalEmojiDisplay.textContent = band.animalEmoji;
   earthReadout.textContent = zoneStatusText(distanceAU, hz);
 }
 
