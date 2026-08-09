@@ -128,7 +128,29 @@ export function computeOrbitalPeriodYears(distanceAU: number, massSolar: number)
 // 気圧や大気組成自体も条件次第で変化しうるが、そこまではモデル化していない。
 const EARTH_GREENHOUSE_OFFSET_K = 33;
 
+// ハビタブルゾーン内側境界（Runaway Greenhouse）は「快適な暑さの限界」ではなく、
+// 「水蒸気の温室効果が暴走的に強まり始める境界」を表す。実際の気候モデルでは
+// この境界を越えると水蒸気フィードバックにより気温が急激に（非線形に）上昇するが、
+// 上のEARTH_GREENHOUSE_OFFSET_Kのような一定値の底上げではこれを表現できない。
+// ここでは内側境界の実効フラックスに対する入射フラックスの比（1を超えたら境界より内側）
+// に応じて温室効果オフセットを増幅する簡易モデルを加え、「境界を越えると急激に高温になる」
+// という定性的な挙動を見せる。定量的な気候モデルではなく教育的な近似であることに注意。
+const RUNAWAY_AMPLIFICATION_MAX = 9;
+const RUNAWAY_AMPLIFICATION_RATE = 5;
+
+function greenhouseOffsetK(star: StarParams, distanceAU: number): number {
+  const incidentFlux = star.luminositySolar / distanceAU ** 2;
+  const runawayThresholdFlux = effectiveFlux(star.teffK, RUNAWAY_GREENHOUSE);
+  const fluxRatio = incidentFlux / runawayThresholdFlux;
+  if (fluxRatio <= 1) {
+    return EARTH_GREENHOUSE_OFFSET_K;
+  }
+  const amplification =
+    1 + RUNAWAY_AMPLIFICATION_MAX * (1 - Math.exp(-RUNAWAY_AMPLIFICATION_RATE * (fluxRatio - 1)));
+  return EARTH_GREENHOUSE_OFFSET_K * amplification;
+}
+
 // 温室効果を加味した、体感に近い地表気温（K）の推定値。
 export function computeSurfaceTemperature(star: StarParams, distanceAU: number, albedo: number): number {
-  return computeEquilibriumTemperature(star, distanceAU, albedo) + EARTH_GREENHOUSE_OFFSET_K;
+  return computeEquilibriumTemperature(star, distanceAU, albedo) + greenhouseOffsetK(star, distanceAU);
 }
