@@ -71,6 +71,15 @@ body {
   margin-top: 2px;
 }
 
+#temperature-emoji {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  right: 12px;
+  font-size: 40px;
+  line-height: 1;
+  pointer-events: none;
+}
+
 #legend {
   padding: 6px 10px;
   background: rgba(0, 0, 0, 0.5);

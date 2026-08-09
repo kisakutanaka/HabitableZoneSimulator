@@ -209,7 +209,12 @@ function zoneStatusText(distanceAU: number, hz: HabitableZone): string {
   return "ハビタブルゾーン内";
 }
 
-// 地表の気温（摂氏）から、体感的な状態を説明する短いコメントを返す。
+interface TemperatureTier {
+  emoji: string;
+  comment: string;
+}
+
+// 地表の気温（摂氏）を説明する短いコメント（7段階）。
 // 0℃・100℃という水の相転移温度（1気圧）を軸に、水が液体でいられるかどうかを軸に据えている。
 function temperatureComment(celsius: number): string {
   if (celsius >= 100) {
@@ -233,6 +238,28 @@ function temperatureComment(celsius: number): string {
   return "極寒で、海はすべて凍りついている";
 }
 
+// 地表の気温（摂氏）を表す顔文字（5段階、コメントより粗い粒度）。
+// 極端な高温・低温だけを💀とし、それ以外は🥵（暑い）/🙂（快適）/🥶（寒い）の3種類で表す。
+function temperatureEmoji(celsius: number): string {
+  if (celsius >= 100) {
+    return "💀";
+  }
+  if (celsius >= 30) {
+    return "🥵";
+  }
+  if (celsius >= 15) {
+    return "🙂";
+  }
+  if (celsius >= -50) {
+    return "🥶";
+  }
+  return "💀";
+}
+
+function temperatureTier(celsius: number): TemperatureTier {
+  return { emoji: temperatureEmoji(celsius), comment: temperatureComment(celsius) };
+}
+
 const temperatureValueEl = document.getElementById("temperature-value");
 if (!temperatureValueEl) {
   throw new Error("#temperature-value element not found");
@@ -245,11 +272,19 @@ if (!temperatureCommentEl) {
 }
 const temperatureCommentText: HTMLElement = temperatureCommentEl;
 
+const temperatureEmojiEl = document.getElementById("temperature-emoji");
+if (!temperatureEmojiEl) {
+  throw new Error("#temperature-emoji element not found");
+}
+const temperatureEmojiDisplay: HTMLElement = temperatureEmojiEl;
+
 function updateEarthReadout(distanceAU: number, surfaceTempKelvin: number, hz: HabitableZone): void {
   // 表示する丸め後の値とコメント判定の基準を一致させる（丸め後だけ基準をまたいで見えるズレを防ぐ）
   const surfaceTempCelsius = Math.round(surfaceTempKelvin - 273.15);
+  const tier = temperatureTier(surfaceTempCelsius);
   temperatureValue.textContent = `${surfaceTempCelsius}℃`;
-  temperatureCommentText.textContent = temperatureComment(surfaceTempCelsius);
+  temperatureCommentText.textContent = tier.comment;
+  temperatureEmojiDisplay.textContent = tier.emoji;
   earthReadout.textContent = zoneStatusText(distanceAU, hz);
 }
 
