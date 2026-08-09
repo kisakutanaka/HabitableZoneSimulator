@@ -4,7 +4,7 @@ import { planets } from "./planets";
 import {
   computeStarParams,
   computeHabitableZone,
-  computeEquilibriumTemperature,
+  computeSurfaceTemperature,
   computeOrbitalPeriodYears,
   teffToColor,
   type StarParams,
@@ -161,6 +161,12 @@ if (!(starMassSliderEl instanceof HTMLInputElement)) {
 }
 const starMassSlider: HTMLInputElement = starMassSliderEl;
 
+const starMassValueEl = document.getElementById("star-mass-value");
+if (!starMassValueEl) {
+  throw new Error("#star-mass-value element not found");
+}
+const starMassValue: HTMLElement = starMassValueEl;
+
 const starReadoutEl = document.getElementById("star-readout");
 if (!starReadoutEl) {
   throw new Error("#star-readout element not found");
@@ -168,8 +174,9 @@ if (!starReadoutEl) {
 const starReadout: HTMLElement = starReadoutEl;
 
 function updateStarReadout(star: StarParams): void {
+  starMassValue.textContent = `太陽の${star.massSolar.toFixed(2)}倍`;
   const teffCelsius = star.teffK - 273.15;
-  starReadout.textContent = `光度: ${star.luminositySolar.toFixed(2)} 太陽光度 ／ 表面温度: ${teffCelsius.toFixed(0)}℃`;
+  starReadout.textContent = `太陽の${star.luminositySolar.toFixed(2)}倍明るい ／ 表面温度: ${teffCelsius.toFixed(0)}℃`;
 }
 
 const earthDistanceSliderEl = document.getElementById("earth-distance");
@@ -177,6 +184,12 @@ if (!(earthDistanceSliderEl instanceof HTMLInputElement)) {
   throw new Error("#earth-distance element not found");
 }
 const earthDistanceSlider: HTMLInputElement = earthDistanceSliderEl;
+
+const earthDistanceValueEl = document.getElementById("earth-distance-value");
+if (!earthDistanceValueEl) {
+  throw new Error("#earth-distance-value element not found");
+}
+const earthDistanceValue: HTMLElement = earthDistanceValueEl;
 
 const earthReadoutEl = document.getElementById("earth-readout");
 if (!earthReadoutEl) {
@@ -194,9 +207,9 @@ function zoneStatusText(distanceAU: number, hz: HabitableZone): string {
   return "ハビタブルゾーン内";
 }
 
-function updateEarthReadout(distanceAU: number, teqKelvin: number, hz: HabitableZone): void {
-  const teqCelsius = teqKelvin - 273.15;
-  earthReadout.textContent = `放射平衡温度: ${teqCelsius.toFixed(0)}℃ ／ ${zoneStatusText(distanceAU, hz)}`;
+function updateEarthReadout(distanceAU: number, surfaceTempKelvin: number, hz: HabitableZone): void {
+  const surfaceTempCelsius = surfaceTempKelvin - 273.15;
+  earthReadout.textContent = `地表の気温: ${surfaceTempCelsius.toFixed(0)}℃ ／ ${zoneStatusText(distanceAU, hz)}`;
 }
 
 // 恒星質量・地球の公転半径の両方に依存する量（公転周期・放射平衡温度・HZ内外判定）を
@@ -205,14 +218,15 @@ let currentStar: StarParams = computeStarParams(1.0);
 
 function updateEarth(): void {
   const distanceAU = Number(earthDistanceSlider.value);
+  earthDistanceValue.textContent = `${distanceAU.toFixed(2)} AU`;
   earthDistance = distanceAU * AU_TO_UNITS;
   updateOrbitLine(earthOrbitLine, earthDistance);
   earthAngularSpeed =
     (Math.PI * 2) / (computeOrbitalPeriodYears(distanceAU, currentStar.massSolar) * EARTH_ORBIT_SECONDS);
 
   const hz = computeHabitableZone(currentStar);
-  const teq = computeEquilibriumTemperature(currentStar, distanceAU, EARTH_ALBEDO);
-  updateEarthReadout(distanceAU, teq, hz);
+  const surfaceTemp = computeSurfaceTemperature(currentStar, distanceAU, EARTH_ALBEDO);
+  updateEarthReadout(distanceAU, surfaceTemp, hz);
 }
 
 function onStarMassChange(): void {

@@ -121,3 +121,14 @@ export function computeEquilibriumTemperature(
 export function computeOrbitalPeriodYears(distanceAU: number, massSolar: number): number {
   return Math.sqrt(distanceAU ** 3 / massSolar);
 }
+
+// 地球の実際の平均地表気温（約288K・15℃）と、大気を無視した放射平衡温度
+// （約255K・-18℃）との差から求めた温室効果による底上げ分。恒星や軌道半径が
+// 変わっても地球と同じ大気組成のままだと仮定した近似値であり、実際には
+// 気圧や大気組成自体も条件次第で変化しうるが、そこまではモデル化していない。
+const EARTH_GREENHOUSE_OFFSET_K = 33;
+
+// 温室効果を加味した、体感に近い地表気温（K）の推定値。
+export function computeSurfaceTemperature(star: StarParams, distanceAU: number, albedo: number): number {
+  return computeEquilibriumTemperature(star, distanceAU, albedo) + EARTH_GREENHOUSE_OFFSET_K;
+}
