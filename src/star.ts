@@ -57,6 +57,35 @@ function effectiveFlux(teffK: number, coeff: HzCoefficients): number {
   );
 }
 
+function clamp8bit(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+// 表面温度(K)から恒星の見た目の色を求める近似式（Tanner Hellandの黒体色近似）。
+// 分光測定に基づく厳密なプランク放射×等色関数の計算ではなく経験的なフィットだが、
+// 教育目的の可視化としては十分な精度で黄色〜白〜青白の変化を表現できる。
+export function teffToColor(teffK: number): number {
+  const temp = teffK / 100;
+
+  const red = temp <= 66 ? 255 : clamp8bit(329.698727446 * Math.pow(temp - 60, -0.1332047592));
+
+  const green =
+    temp <= 66
+      ? clamp8bit(99.4708025861 * Math.log(temp) - 161.1195681661)
+      : clamp8bit(288.1221695283 * Math.pow(temp - 60, -0.0755148492));
+
+  let blue: number;
+  if (temp >= 66) {
+    blue = 255;
+  } else if (temp <= 19) {
+    blue = 0;
+  } else {
+    blue = clamp8bit(138.5177312231 * Math.log(temp - 10) - 305.0447927307);
+  }
+
+  return (red << 16) | (green << 8) | blue;
+}
+
 export interface HabitableZone {
   innerAU: number;
   outerAU: number;

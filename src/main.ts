@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { planets } from "./planets";
-import { computeStarParams, computeHabitableZone } from "./star";
+import { computeStarParams, computeHabitableZone, teffToColor, type StarParams } from "./star";
 
 const container = document.getElementById("app");
 if (!container) {
@@ -35,7 +35,10 @@ const sun = new THREE.Mesh(
 );
 scene.add(sun);
 
-const sunLight = new THREE.PointLight(0xffffff, 500);
+// 恒星質量M=1（太陽）のときの点光源強度。恒星の光度に比例させてスライダーに連動する。
+const SUN_LIGHT_BASE_INTENSITY = 500;
+
+const sunLight = new THREE.PointLight(0xffffff, SUN_LIGHT_BASE_INTENSITY);
 sunLight.position.set(0, 0, 0);
 scene.add(sunLight);
 
@@ -103,10 +106,57 @@ function createHabitableZoneRing(innerAU: number, outerAU: number): THREE.Mesh {
   return ring;
 }
 
-const sunParams = computeStarParams(1.0);
-const habitableZone = computeHabitableZone(sunParams);
-const habitableZoneRing = createHabitableZoneRing(habitableZone.innerAU, habitableZone.outerAU);
+function updateHabitableZoneRing(ring: THREE.Mesh, innerAU: number, outerAU: number): void {
+  ring.geometry.dispose();
+  ring.geometry = new THREE.RingGeometry(innerAU * AU_TO_UNITS, outerAU * AU_TO_UNITS, HZ_RING_SEGMENTS);
+}
+
+const initialStarParams = computeStarParams(1.0);
+const initialHabitableZone = computeHabitableZone(initialStarParams);
+const habitableZoneRing = createHabitableZoneRing(
+  initialHabitableZone.innerAU,
+  initialHabitableZone.outerAU,
+);
 scene.add(habitableZoneRing);
+
+// 恒星質量スライダーの値を、光度・半径・表面温度・ハビタブルゾーンへ反映する。
+// 太陽メッシュは立方体の見た目を保つため、ベース半径からのスケール比としてR★を適用する。
+function applyStarParams(massSolar: number): StarParams {
+  const star = computeStarParams(massSolar);
+
+  sun.scale.setScalar(star.radiusSolar);
+  (sun.material as THREE.MeshBasicMaterial).color.setHex(teffToColor(star.teffK));
+  sunLight.intensity = SUN_LIGHT_BASE_INTENSITY * star.luminositySolar;
+
+  const hz = computeHabitableZone(star);
+  updateHabitableZoneRing(habitableZoneRing, hz.innerAU, hz.outerAU);
+
+  return star;
+}
+
+const starMassSliderEl = document.getElementById("star-mass");
+if (!(starMassSliderEl instanceof HTMLInputElement)) {
+  throw new Error("#star-mass element not found");
+}
+const starMassSlider: HTMLInputElement = starMassSliderEl;
+
+const starReadoutEl = document.getElementById("star-readout");
+if (!starReadoutEl) {
+  throw new Error("#star-readout element not found");
+}
+const starReadout: HTMLElement = starReadoutEl;
+
+function updateStarReadout(star: StarParams): void {
+  starReadout.textContent = `光度: ${star.luminositySolar.toFixed(2)} 太陽光度 ／ 表面温度: ${Math.round(star.teffK)} K`;
+}
+
+function onStarMassChange(): void {
+  const star = applyStarParams(Number(starMassSlider.value));
+  updateStarReadout(star);
+}
+
+starMassSlider.addEventListener("input", onStarMassChange);
+onStarMassChange();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);

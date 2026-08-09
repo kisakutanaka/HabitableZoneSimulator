@@ -21,3 +21,38 @@ body {
 #app canvas {
   display: block;
 }
+
+#controls {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  touch-action: manipulation;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.control label {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #ccc;
+}
+
+.control input[type="range"] {
+  width: 100%;
+  touch-action: manipulation;
+}
+
+.readout {
+  font-size: 13px;
+  color: #fff;
+}

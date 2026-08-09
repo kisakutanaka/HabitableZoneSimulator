@@ -8,6 +8,15 @@
   </head>
   <body>
     <div id="app"></div>
+    <div id="controls">
+      <div class="control">
+        <label for="star-mass">
+          恒星の質量（太陽 = 1.0）— 重いほど明るく高温になり、ハビタブルゾーンも外側に広がる
+        </label>
+        <input id="star-mass" type="range" min="0.5" max="1.5" step="0.01" value="1.0" />
+        <p id="star-readout" class="readout"></p>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
