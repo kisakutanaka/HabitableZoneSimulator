@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { planets } from "./planets";
+import { computeStarParams, computeHabitableZone } from "./star";
 
 const container = document.getElementById("app");
 if (!container) {
@@ -16,18 +17,16 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000,
 );
-camera.position.set(0, 110, 300);
+camera.position.set(0, 8, 14);
 camera.lookAt(0, 0, 0);
 
 // 距離は太陽からの実際の距離（AU）に比例させる。
 const AU_TO_UNITS = 4;
 
-// 天体の大きさは、距離と同じ縮尺では太陽以外ほぼ見えなくなるため、
-// 見やすさのために「地球の半径に対する立方根比」で圧縮して誇張している。
+// 天体の大きさは、距離と同じ縮尺では見えなくなるため、見やすさのために誇張している
 // （距離のスケールだけは誇張せず正確に保つ）
-const EARTH_RADIUS_KM = 6371;
 const PLANET_SIZE_SCALE = 0.3;
-// 水星の軌道距離（0.39 AU × AU_TO_UNITS）より小さくして、太陽の中に埋もれないようにする
+// 地球の軌道距離（1 AU × AU_TO_UNITS）より小さくして、太陽の中に埋もれないようにする
 const SUN_DISPLAY_RADIUS = 1.0;
 
 const sun = new THREE.Mesh(
@@ -63,30 +62,51 @@ function createOrbitLine(radius: number, color: number): THREE.Line {
 // 公転周期の比率（速さの違い）が見て分かるように短縮している。
 const EARTH_ORBIT_SECONDS = 8;
 
-interface AnimatedPlanet {
-  mesh: THREE.Mesh;
-  distance: number;
-  angle: number;
-  angularSpeed: number;
+const earthData = planets.find((planet) => planet.name === "Earth");
+if (!earthData) {
+  throw new Error("Earth data not found in planets.ts");
 }
 
-const animatedPlanets: AnimatedPlanet[] = planets.map((planet, index) => {
-  const radius = PLANET_SIZE_SCALE * Math.cbrt(planet.radiusKm / EARTH_RADIUS_KM);
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 32, 32),
-    new THREE.MeshStandardMaterial({ color: planet.color }),
+const earthMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(PLANET_SIZE_SCALE, 32, 32),
+  new THREE.MeshStandardMaterial({ color: earthData.color }),
+);
+scene.add(earthMesh);
+
+const earthDistance = earthData.distanceAU * AU_TO_UNITS;
+let earthAngle = 0;
+const earthAngularSpeed = (Math.PI * 2) / (earthData.orbitalPeriodYears * EARTH_ORBIT_SECONDS);
+earthMesh.position.set(earthDistance, 0, 0);
+
+scene.add(createOrbitLine(earthDistance, earthData.color));
+
+// ハビタブルゾーン（恒星周辺で惑星表面に液体の水が存在できる範囲）を、
+// 太陽面（軌道面）に重なる半透明のリングとして表示する。
+// 境界の算出方法はsrc/star.tsを参照（Kopparapu et al. 2013の実効フラックス式）。
+const HZ_RING_SEGMENTS = 128;
+
+function createHabitableZoneRing(innerAU: number, outerAU: number): THREE.Mesh {
+  const geometry = new THREE.RingGeometry(
+    innerAU * AU_TO_UNITS,
+    outerAU * AU_TO_UNITS,
+    HZ_RING_SEGMENTS,
   );
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x33cc66,
+    transparent: true,
+    opacity: 0.25,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const ring = new THREE.Mesh(geometry, material);
+  ring.rotation.x = -Math.PI / 2;
+  return ring;
+}
 
-  const distance = planet.distanceAU * AU_TO_UNITS;
-  const angle = (index / planets.length) * Math.PI * 2;
-  mesh.position.set(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
-
-  scene.add(mesh);
-  scene.add(createOrbitLine(distance, planet.color));
-
-  const angularSpeed = (Math.PI * 2) / (planet.orbitalPeriodYears * EARTH_ORBIT_SECONDS);
-  return { mesh, distance, angle, angularSpeed };
-});
+const sunParams = computeStarParams(1.0);
+const habitableZone = computeHabitableZone(sunParams);
+const habitableZoneRing = createHabitableZoneRing(habitableZone.innerAU, habitableZone.outerAU);
+scene.add(habitableZoneRing);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -103,7 +123,7 @@ window.addEventListener("resize", () => {
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.minDistance = 2;
-controls.maxDistance = 500;
+controls.maxDistance = 50;
 
 const clock = new THREE.Clock();
 
@@ -112,14 +132,8 @@ function animate(): void {
 
   const delta = clock.getDelta();
 
-  for (const planet of animatedPlanets) {
-    planet.angle += planet.angularSpeed * delta;
-    planet.mesh.position.set(
-      Math.cos(planet.angle) * planet.distance,
-      0,
-      Math.sin(planet.angle) * planet.distance,
-    );
-  }
+  earthAngle += earthAngularSpeed * delta;
+  earthMesh.position.set(Math.cos(earthAngle) * earthDistance, 0, Math.sin(earthAngle) * earthDistance);
 
   controls.update();
   renderer.render(scene, camera);

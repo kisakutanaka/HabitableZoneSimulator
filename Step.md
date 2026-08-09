@@ -7,6 +7,7 @@ science-app-framework.mdの3点セット方針に基づく実装ロードマッ�
 - **恒星パラメータUI**: 単一スライダー（恒星質量）で光度・表面温度・半径を主系列関係から連動して算出する。光度・表面温度は数値として表示する。
 - **流用機能の扱い**: `main.ts`にある対数表示切替・回転中心（基準天体）切替／逆行軌道・距離ルーラーUIは、Plan.mdの企画に含まれずUIをシンプルに保つ方針にも合わないため、Phase 0で削除する。
 - **デプロイ方針**: 早期にGit初期化＋GitHub Pages設定を行い、以降の各フェーズで実機確認する。GitHubリポジトリは作成済み（`git@github.com:kisakutanaka/HabitableZoneSimulator.git`）。Phase 0でこれを`origin`に設定し、Viteの`base`パスは`/HabitableZoneSimulator/`とする。
+- **表示する天体**: Phase 1でSun以外の7惑星を削除し、太陽・ハビタブルゾーン・地球のみのシンプルな構成に変更（当初案の「8惑星表示」から縮小）。恒星パラメータ変更→HZ変化、地球公転半径変更→気温変化という中核体験に画面を集中させるため。
 
 ## 科学的モデルの方針
 
@@ -22,17 +23,23 @@ science-app-framework.mdの3点セット方針に基づく実装ロードマッ�
 ## フェーズ
 
 ### Phase 0: プロジェクトセットアップ
-- [ ] `git init`
-- [ ] Vite + TypeScript構成を追加（package.json, tsconfig.json, vite.config.ts, index.html）。three・@types/threeを依存関係に追加
-- [ ] `src/main.ts`から対数表示切替・回転中心切替・逆行軌道・距離ルーラーの関連コードを削除し、8惑星＋軌道線＋自由視点カメラのみのシンプルな3Dシーンに整理
-- [ ] 作成済みのGitHubリポジトリ（kisakutanaka/HabitableZoneSimulator）をoriginに設定してpush。GitHub Actionsでbuild&deployするワークフローを用意し、GitHub Pages公開設定を行う
-- [ ] 実機確認: `npm run dev`でローカル動作確認、GitHub Pagesの公開URLをiPhone実機で開いて操作確認
+- [x] `git init`（デフォルトブランチをmainに変更）
+- [x] Vite + TypeScript構成を追加（package.json, tsconfig.json, vite.config.ts, index.html）。three・@types/threeを依存関係に追加
+  - メモ: 流用元main.tsが使っていた`THREE.Timer`は`three@0.169`にまだ存在しないAPIだったため、`THREE.Clock`に置き換えた。
+- [x] `src/main.ts`から対数表示切替・回転中心切替・逆行軌道・距離ルーラーの関連コードを削除し、8惑星＋軌道線＋自由視点カメラのみのシンプルな3Dシーンに整理
+  - メモ: Phase 1で「地球以外の7惑星は不要では」との判断により、太陽・地球のみの構成にさらに縮小（下記Phase 1参照）。
+- [x] 作成済みのGitHubリポジトリ（kisakutanaka/HabitableZoneSimulator）をoriginに設定してpush。GitHub Actionsでbuild&deployするワークフローを用意し、GitHub Pages公開設定を行う
+  - メモ: GitHub Pages公開設定（Settings→Pages→Source: GitHub Actions）はユーザーが手動で設定。Actionsのデプロイは初回から成功。
+- [x] 実機確認: `npm run dev`でローカル動作確認（Playwrightでスクリーンショット・console/pageerror確認、エラーなし）。本番ビルド（`npm run build`+`vite preview`）でもbaseパス配信を確認。公開URL https://kisakutanaka.github.io/HabitableZoneSimulator/ もPlaywright（モバイル解像度）でエラーなしを確認済み。iPhone実機での最終目視確認はユーザー側で実施予定。
 
 ### Phase 1: ハビタブルゾーンの計算・表示（太陽固定）
-- [ ] `src/star.ts`を新設し、恒星質量→L・R・Teff、L・Teff→HZ内側/外側AU（Kopparapu式）の計算関数を実装
-- [ ] HZを太陽面（y=0平面）の半透明なリング（RingGeometry等）として3Dシーンに追加
-- [ ] 公表されている太陽のHZ値と突き合わせて検証し、Findings.mdに記録（差異があれば原因を特定）
-- [ ] 実機確認: デプロイ→リングが金星軌道と火星軌道の間に妥当な見た目で表示されるか確認
+- [x] 地球以外の7惑星（水星〜海王星、火星より外側含む）を表示から削除し、太陽・地球のみの構成に変更
+  - メモ: ユーザー判断により、UIをハビタブルゾーンと地球環境の変化という中核体験に集中させるため。カメラ距離（旧: 惑星系全体を見る想定）と`OrbitControls`の`maxDistance`も新しいシーンスケールに合わせて縮小した。
+- [x] `src/star.ts`を新設し、恒星質量→L・R・Teff、L・Teff→HZ内側/外側AU（Kopparapu式）の計算関数を実装
+- [x] HZを太陽面（y=0平面）の半透明なリング（RingGeometry）として3Dシーンに追加
+- [x] 公表されている太陽のHZ値と突き合わせて検証し、Findings.mdに記録
+  - メモ: Kopparapu et al. (2013)のerratum記載の係数を一次情報で確認して実装。太陽（M=1）でHZ=0.981〜1.689AUとなり、公表値（約0.99〜1.70AU）とほぼ一致。地球（1.0AU）はHZ内側境界のすぐ外側＝HZ内に位置することを確認。
+- [x] 実機確認: `npm run dev`でPlaywright screenshot確認（太陽・HZ帯・地球が意図通り描画、console/pageerrorなし）。`npm run build`も成功。
 
 ### Phase 2: 恒星パラメータ変更UI（質量スライダー）
 - [ ] 質量スライダー（例: 0.4〜1.6 M☉）と、光度・表面温度の数値表示を追加
