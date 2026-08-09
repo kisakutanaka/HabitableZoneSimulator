@@ -101,3 +101,23 @@ export function computeHabitableZone(star: StarParams): HabitableZone {
     outerAU: Math.sqrt(star.luminositySolar / outerSeff),
   };
 }
+
+// 1天文単位を太陽半径単位で表した値（放射平衡温度の計算で単位を揃えるために使う）
+const AU_IN_SOLAR_RADII = 215.032;
+
+// 惑星表面の放射平衡温度（K）。大気による温室効果は含まない、恒星放射と
+// 惑星表面での反射（アルベド）だけを考慮した黒体としての釣り合い温度。
+// Teq = Teff・√(R★ / (2a))・(1-A)^0.25
+export function computeEquilibriumTemperature(
+  star: StarParams,
+  distanceAU: number,
+  albedo: number,
+): number {
+  const distanceSolarRadii = distanceAU * AU_IN_SOLAR_RADII;
+  return star.teffK * Math.sqrt(star.radiusSolar / (2 * distanceSolarRadii)) * Math.pow(1 - albedo, 0.25);
+}
+
+// ケプラーの第3法則（AU・太陽質量・年の単位系では比例定数が1になる）: T^2 = a^3 / M
+export function computeOrbitalPeriodYears(distanceAU: number, massSolar: number): number {
+  return Math.sqrt(distanceAU ** 3 / massSolar);
+}

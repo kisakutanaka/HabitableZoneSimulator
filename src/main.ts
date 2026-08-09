@@ -1,7 +1,15 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { planets } from "./planets";
-import { computeStarParams, computeHabitableZone, teffToColor, type StarParams } from "./star";
+import {
+  computeStarParams,
+  computeHabitableZone,
+  computeEquilibriumTemperature,
+  computeOrbitalPeriodYears,
+  teffToColor,
+  type StarParams,
+  type HabitableZone,
+} from "./star";
 
 const container = document.getElementById("app");
 if (!container) {
@@ -50,15 +58,24 @@ scene.add(ambientLight);
 
 const ORBIT_LINE_SEGMENTS = 128;
 
-function createOrbitLine(radius: number, color: number): THREE.Line {
+function createOrbitPoints(radius: number): THREE.Vector3[] {
   const points: THREE.Vector3[] = [];
   for (let i = 0; i <= ORBIT_LINE_SEGMENTS; i++) {
     const theta = (i / ORBIT_LINE_SEGMENTS) * Math.PI * 2;
     points.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
   }
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  return points;
+}
+
+function createOrbitLine(radius: number, color: number): THREE.Line {
+  const geometry = new THREE.BufferGeometry().setFromPoints(createOrbitPoints(radius));
   const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 });
   return new THREE.Line(geometry, material);
+}
+
+function updateOrbitLine(line: THREE.Line, radius: number): void {
+  line.geometry.dispose();
+  line.geometry = new THREE.BufferGeometry().setFromPoints(createOrbitPoints(radius));
 }
 
 // 地球が1周するのにかかる実時間（秒）。完全なリアルタイムではなく、
@@ -76,12 +93,16 @@ const earthMesh = new THREE.Mesh(
 );
 scene.add(earthMesh);
 
-const earthDistance = earthData.distanceAU * AU_TO_UNITS;
+let earthDistance = earthData.distanceAU * AU_TO_UNITS;
 let earthAngle = 0;
-const earthAngularSpeed = (Math.PI * 2) / (earthData.orbitalPeriodYears * EARTH_ORBIT_SECONDS);
+let earthAngularSpeed = (Math.PI * 2) / (earthData.orbitalPeriodYears * EARTH_ORBIT_SECONDS);
 earthMesh.position.set(earthDistance, 0, 0);
 
-scene.add(createOrbitLine(earthDistance, earthData.color));
+const earthOrbitLine = createOrbitLine(earthDistance, earthData.color);
+scene.add(earthOrbitLine);
+
+// 惑星表面の放射平衡温度を計算する際のアルベド（反射率）。地球の実測値に近い平均値を固定で使う。
+const EARTH_ALBEDO = 0.3;
 
 // ハビタブルゾーン（恒星周辺で惑星表面に液体の水が存在できる範囲）を、
 // 太陽面（軌道面）に重なる半透明のリングとして表示する。
@@ -147,15 +168,61 @@ if (!starReadoutEl) {
 const starReadout: HTMLElement = starReadoutEl;
 
 function updateStarReadout(star: StarParams): void {
-  starReadout.textContent = `光度: ${star.luminositySolar.toFixed(2)} 太陽光度 ／ 表面温度: ${Math.round(star.teffK)} K`;
+  const teffCelsius = star.teffK - 273.15;
+  starReadout.textContent = `光度: ${star.luminositySolar.toFixed(2)} 太陽光度 ／ 表面温度: ${teffCelsius.toFixed(0)}℃`;
+}
+
+const earthDistanceSliderEl = document.getElementById("earth-distance");
+if (!(earthDistanceSliderEl instanceof HTMLInputElement)) {
+  throw new Error("#earth-distance element not found");
+}
+const earthDistanceSlider: HTMLInputElement = earthDistanceSliderEl;
+
+const earthReadoutEl = document.getElementById("earth-readout");
+if (!earthReadoutEl) {
+  throw new Error("#earth-readout element not found");
+}
+const earthReadout: HTMLElement = earthReadoutEl;
+
+function zoneStatusText(distanceAU: number, hz: HabitableZone): string {
+  if (distanceAU < hz.innerAU) {
+    return "ハビタブルゾーンより内側（暑すぎる）";
+  }
+  if (distanceAU > hz.outerAU) {
+    return "ハビタブルゾーンより外側（寒すぎる）";
+  }
+  return "ハビタブルゾーン内";
+}
+
+function updateEarthReadout(distanceAU: number, teqKelvin: number, hz: HabitableZone): void {
+  const teqCelsius = teqKelvin - 273.15;
+  earthReadout.textContent = `放射平衡温度: ${teqCelsius.toFixed(0)}℃ ／ ${zoneStatusText(distanceAU, hz)}`;
+}
+
+// 恒星質量・地球の公転半径の両方に依存する量（公転周期・放射平衡温度・HZ内外判定）を
+// まとめて更新する。恒星スライダー・地球軌道スライダーのどちらが変化しても呼び出す。
+let currentStar: StarParams = computeStarParams(1.0);
+
+function updateEarth(): void {
+  const distanceAU = Number(earthDistanceSlider.value);
+  earthDistance = distanceAU * AU_TO_UNITS;
+  updateOrbitLine(earthOrbitLine, earthDistance);
+  earthAngularSpeed =
+    (Math.PI * 2) / (computeOrbitalPeriodYears(distanceAU, currentStar.massSolar) * EARTH_ORBIT_SECONDS);
+
+  const hz = computeHabitableZone(currentStar);
+  const teq = computeEquilibriumTemperature(currentStar, distanceAU, EARTH_ALBEDO);
+  updateEarthReadout(distanceAU, teq, hz);
 }
 
 function onStarMassChange(): void {
-  const star = applyStarParams(Number(starMassSlider.value));
-  updateStarReadout(star);
+  currentStar = applyStarParams(Number(starMassSlider.value));
+  updateStarReadout(currentStar);
+  updateEarth();
 }
 
 starMassSlider.addEventListener("input", onStarMassChange);
+earthDistanceSlider.addEventListener("input", updateEarth);
 onStarMassChange();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
