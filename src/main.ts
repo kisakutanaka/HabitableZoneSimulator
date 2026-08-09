@@ -25,7 +25,9 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000,
 );
-camera.position.set(0, 8, 14);
+// 恒星質量・地球公転半径のスライダーを動かした範囲全体（HZリングが最大に広がる場合含む）が
+// 初期表示で収まるよう、少し引いた位置にする。
+camera.position.set(0, 15, 26);
 camera.lookAt(0, 0, 0);
 
 // 距離は太陽からの実際の距離（AU）に比例させる。
@@ -207,9 +209,48 @@ function zoneStatusText(distanceAU: number, hz: HabitableZone): string {
   return "ハビタブルゾーン内";
 }
 
+// 地表の気温（摂氏）から、体感的な状態を説明する短いコメントを返す。
+// 0℃・100℃という水の相転移温度（1気圧）を軸に、水が液体でいられるかどうかを軸に据えている。
+function temperatureComment(celsius: number): string {
+  if (celsius >= 100) {
+    return "灼熱で、水はすべて蒸発してしまう";
+  }
+  if (celsius >= 50) {
+    return "人が生活するには暑すぎる";
+  }
+  if (celsius >= 30) {
+    return "暑いが、水はまだ液体で存在できる";
+  }
+  if (celsius >= 15) {
+    return "ちょうどよい気温で、生命が活動しやすい";
+  }
+  if (celsius >= 0) {
+    return "少し寒いが、水は液体のまま存在できる";
+  }
+  if (celsius >= -50) {
+    return "とても寒く、海のほとんどが凍っている";
+  }
+  return "極寒で、海はすべて凍りついている";
+}
+
+const temperatureValueEl = document.getElementById("temperature-value");
+if (!temperatureValueEl) {
+  throw new Error("#temperature-value element not found");
+}
+const temperatureValue: HTMLElement = temperatureValueEl;
+
+const temperatureCommentEl = document.getElementById("temperature-comment");
+if (!temperatureCommentEl) {
+  throw new Error("#temperature-comment element not found");
+}
+const temperatureCommentText: HTMLElement = temperatureCommentEl;
+
 function updateEarthReadout(distanceAU: number, surfaceTempKelvin: number, hz: HabitableZone): void {
-  const surfaceTempCelsius = surfaceTempKelvin - 273.15;
-  earthReadout.textContent = `地表の気温: ${surfaceTempCelsius.toFixed(0)}℃ ／ ${zoneStatusText(distanceAU, hz)}`;
+  // 表示する丸め後の値とコメント判定の基準を一致させる（丸め後だけ基準をまたいで見えるズレを防ぐ）
+  const surfaceTempCelsius = Math.round(surfaceTempKelvin - 273.15);
+  temperatureValue.textContent = `${surfaceTempCelsius}℃`;
+  temperatureCommentText.textContent = temperatureComment(surfaceTempCelsius);
+  earthReadout.textContent = zoneStatusText(distanceAU, hz);
 }
 
 // 恒星質量・地球の公転半径の両方に依存する量（公転周期・放射平衡温度・HZ内外判定）を

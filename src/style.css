@@ -38,15 +38,44 @@ body {
   touch-action: manipulation;
 }
 
-#legend {
+#info-panel {
   position: fixed;
   top: calc(10px + env(safe-area-inset-top));
   left: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  pointer-events: none;
+}
+
+#temperature-display {
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  color: #fff;
+  max-width: 80vw;
+}
+
+#temperature-value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+#temperature-comment {
+  font-size: 12px;
+  color: #ddd;
+  margin-top: 2px;
+}
+
+#legend {
   padding: 6px 10px;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 6px;
   color: #fff;
-  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
   font-size: 11px;
 }
 
